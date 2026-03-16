@@ -139,41 +139,30 @@ no infra management
 
 ## Repository Structure
 
-incident-postmortem-agent
-│
-├── app
-│   ├── main.py
-│   ├── api
-│   │    └── routes.py
-│   │
-│   ├── agents
-│   │    ├── extractor_agent.py
-│   │    ├── classifier_agent.py
-│   │    ├── timeline_agent.py
-│   │    ├── validator_agent.py
-│   │    └── writer_agent.py
-│   │
-│   ├── services
-│   │    ├── servicenow_client.py
-│   │    ├── confluence_client.py
-│   │    └── timeline_service.py
-│   │
-│   ├── models
-│   │    ├── incident.py
-│   │    ├── timeline.py
-│   │    └── postmortem.py
-│   │
-│   ├── templates
-│   │    └── confluence_template.md
-│   │
-│   └── utils
-│        ├── scoring.py
-│        ├── filtering.py
-│        └── logging.py
-│
-├── tests
-├── Dockerfile
-└── requirements.txt
+incident-postmortem-agent/
+  app/
+    main.py
+    config.py
+    api/
+      routes.py
+    clients/
+      servicenow_client.py
+      confluence_client.py
+      vertex_client.py
+    models/
+      incident.py
+      events.py
+      postmortem.py
+    services/
+      extractor_service.py
+      filter_service.py
+      timeline_service.py
+      eureka_service.py
+      publisher_service.py
+      writer_service.py
+  tests/
+  requirements.txt
+  Dockerfile
 
 ## Final Stack Summary
 Layer	Framework
