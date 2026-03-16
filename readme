@@ -1,0 +1,213 @@
+# Application Framework - AI Incident Intelligence Platform
+## FastAPI
+FastAPI:
+async support
+great for microservices
+automatic OpenAPI docs
+simple dependency injection
+perfect for internal automation tools
+
+Typical use:
+API to trigger postmortem generation
+orchestrator service
+pipeline control
+
+Example Endpoint -->
+POST /generate-postmortem
+{
+  "incident_sys_id": "abc123"
+}
+
+## Agent Orchestration Framework
+LangGraph:
+
+deterministic flows
+retries
+human review steps
+agent state memory
+
+multiple agents:
+Extractor
+Classifier
+Timeline
+Validator
+Writer
+Publisher
+
+Example flow:
+extract_data
+   ↓
+filter_noise
+   ↓
+build_timeline
+   ↓
+validate_quality
+   ↓
+generate_summary
+   ↓
+publish_confluence
+
+## ServiceNow Integration
+ServiceNow REST API
+Pull data:
+incident table
+sys_audit
+sys_journal_field
+cmdb_ci
+Python integration:
+requests
+httpx
+pysnow (optional)
+
+## Confluence Integration
+Confluence Cloud REST API
+creating postmortem pages
+updating drafts
+linking incidents
+
+Example endpoint --> POST /wiki/rest/api/content
+Python tools:
+atlassian-python-api
+or
+requests
+
+## Task Queue / Background Execution
+ --> Incident analysis should run async.
+ --> Celery OR simpler if GCP
+
+
+## Google Cloud Tasks
+Tasks handled:
+extract incident
+analyze timeline
+generate RCA
+publish page
+
+## Data Storage
+
+Ingestion Process:
+pipeline runs
+timeline events
+scoring results
+LLM outputs
+
+PostgreSQL: Recommended tables
+
+incident_pipeline_runs
+incident_events
+timeline_events
+quality_scores
+llm_outputs
+
+## Observability Framework
+pipeline observability
+
+OpenTelemetry:
+pipeline latency
+agent execution time
+LLM latency
+failure rate
+
+Logging
+
+Structured logging is critical.
+
+🪵 structlog
+
+Logs should include
+
+incident_id
+stage
+confidence_score
+execution_time
+Containerization
+🐳 Docker
+
+service will run as:
+
+incident-postmortem-agent
+Deployment Platform
+
+Since you already work heavily in GCP:
+
+## Google Cloud Run
+Why Cloud Run:
+autoscaling
+simple deployment
+cheap
+no infra management
+
+## Repository Structure
+
+incident-postmortem-agent
+│
+├── app
+│   ├── main.py
+│   ├── api
+│   │    └── routes.py
+│   │
+│   ├── agents
+│   │    ├── extractor_agent.py
+│   │    ├── classifier_agent.py
+│   │    ├── timeline_agent.py
+│   │    ├── validator_agent.py
+│   │    └── writer_agent.py
+│   │
+│   ├── services
+│   │    ├── servicenow_client.py
+│   │    ├── confluence_client.py
+│   │    └── timeline_service.py
+│   │
+│   ├── models
+│   │    ├── incident.py
+│   │    ├── timeline.py
+│   │    └── postmortem.py
+│   │
+│   ├── templates
+│   │    └── confluence_template.md
+│   │
+│   └── utils
+│        ├── scoring.py
+│        ├── filtering.py
+│        └── logging.py
+│
+├── tests
+├── Dockerfile
+└── requirements.txt
+
+## Final Stack Summary
+Layer	Framework
+API	FastAPI
+Agent orchestration	LangGraph
+LLM	OpenAI API
+Incident source	ServiceNow REST
+Documentation	Confluence API
+Task queue	Cloud Tasks / Celery
+Database	PostgreSQL
+Observability	OpenTelemetry
+Metrics	Prometheus
+Dashboard	Grafana
+Logging	structlog
+Container	Docker
+Deployment	Cloud Run
+
+## LLM Framework
+
+Vertex AI / Gemini:
+For:
+summarization
+RCA narrative
+action item drafting
+ambiguity classification
+
+Not for:
+MTTR
+timeline ordering
+CI validation
+
+## Phase 2:
+incident similarity detection
+outage pattern discovery
+auto remediation suggestions
+reliability trend analysis
+
