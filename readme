@@ -211,3 +211,22 @@ outage pattern discovery
 auto remediation suggestions
 reliability trend analysis
 
+## Below are the phases
+
+Phase 1 
+1️⃣ ServiceNow extractor
+2️⃣ Normalized event model
+3️⃣ Noise filter
+
+Phase 2 
+4️⃣ Timeline builder
+5️⃣ MTTR calculation
+
+Phase 3 
+6️⃣ Eureka detection
+
+Phase 4 
+7️⃣ Confluence publisher
+
+Phase 5 
+8️⃣ LLM narrative writer
