@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rca-agent
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rca-config
+  namespace: rca-agent
+data:
+  GCP_PROJECT_ID: "YOUR_PROJECT_ID"          # replace
+  GCP_LOCATION:   "us-central1"
+  GEMINI_MODEL:   "gemini-1.5-pro"
+  # BACKEND_URL is the internal ClusterIP service URL used by the frontend
+  BACKEND_URL:    "http://rca-backend.rca-agent.svc.cluster.local"
+  # CORS_ORIGINS: allowed origins for the backend (add your frontend domain)
+  CORS_ORIGINS:   "http://localhost:3000"
+---
+# Kubernetes ServiceAccount that maps to a GCP Service Account via Workload Identity.
+# This is how the backend gets GCP credentials (Vertex AI) without any key file.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rca-agent-sa
+  namespace: rca-agent
+  annotations:
+    iam.gke.io/gcp-service-account: rca-agent-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com

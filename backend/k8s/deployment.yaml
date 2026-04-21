@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rca-backend
+  namespace: rca-agent
+  labels:
+    app: rca-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rca-backend
+  template:
+    metadata:
+      labels:
+        app: rca-backend
+    spec:
+      serviceAccountName: rca-agent-sa   # maps to GCP service account via Workload Identity
+      containers:
+        - name: rca-backend
+          image: REGION-docker.pkg.dev/PROJECT_ID/rca-agent/rca-backend:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: GCP_PROJECT_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: rca-config
+                  key: GCP_PROJECT_ID
+            - name: GCP_LOCATION
+              valueFrom:
+                configMapKeyRef:
+                  name: rca-config
+                  key: GCP_LOCATION
+            - name: GEMINI_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  name: rca-config
+                  key: GEMINI_MODEL
+            - name: CORS_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: rca-config
+                  key: CORS_ORIGINS
+            - name: PORT
+              value: "8080"
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rca-backend
+  namespace: rca-agent
+spec:
+  selector:
+    app: rca-backend
+  ports:
+    - port: 80
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: rca-backend-hpa
+  namespace: rca-agent
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: rca-backend
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
