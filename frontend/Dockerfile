@@ -1,36 +1,28 @@
-# ── Stage 1: Build React app ──────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+RUN addgroup --system app && adduser --system --ingroup app app
 
 WORKDIR /app
 
-# Install deps first (layer cache)
-COPY package.json ./
-RUN npm install
+COPY requirements.txt .
+RUN pip install --upgrade pip && pip install -r requirements.txt
 
-# Copy source and build
-# VITE_API_URL is set to the placeholder so we can inject it at runtime
-# without rebuilding the image per environment.
-COPY . .
-ENV VITE_API_URL=__VITE_API_URL_PLACEHOLDER__
-RUN npm run build
+COPY app.py .
+COPY .streamlit/ ./.streamlit/
 
-# ── Stage 2: Serve with Nginx ─────────────────────────────────────────────
-FROM nginx:1.27-alpine AS runtime
+RUN chown -R app:app /app
+USER app
 
-# Remove default config
-RUN rm /etc/nginx/conf.d/default.conf
+EXPOSE 8501
 
-# Copy our nginx config and built assets
-COPY nginx.conf /etc/nginx/conf.d/app.conf
-COPY --from=builder /app/dist /usr/share/nginx/html
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')"
 
-# Runtime env injection script
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
-
-EXPOSE 80
-
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-  CMD wget -qO- http://localhost/healthz || exit 1
-
-ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["streamlit", "run", "app.py", \
+     "--server.port=8501", \
+     "--server.address=0.0.0.0", \
+     "--server.headless=true"]
