@@ -1,8 +1,7 @@
 """
 RCA Agent — FastAPI backend
-- Exposes a full REST API (usable standalone by any consumer)
-- Vertex AI / Gemini via Application Default Credentials (GCP ADC)
-- CORS configured for the separate frontend service
+Initialises: Vertex AI / Gemini, ServiceNow client, Confluence client.
+All credentials come from environment variables — no secrets in code.
 """
 import logging
 import os
@@ -12,88 +11,129 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .routers import rca_router
-from .services import init_gemini
+from .services import init_gemini, init_servicenow, init_confluence
 
-# ── Logging ──────────────────────────────────────────────────────────────────
+# ── Logging ───────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
 )
 log = logging.getLogger("rca.main")
 
-# ── Config ───────────────────────────────────────────────────────────────────
-GCP_PROJECT_ID  = os.environ.get("GCP_PROJECT_ID")
-GCP_LOCATION    = os.environ.get("GCP_LOCATION", "us-central1")
-GEMINI_MODEL    = os.environ.get("GEMINI_MODEL", "gemini-1.5-pro")
-PORT            = int(os.environ.get("PORT", 8080))
+# ── Config ────────────────────────────────────────────────────────
+# GCP / Vertex AI
+GCP_PROJECT_ID = os.environ.get("GCP_PROJECT_ID")
+GCP_LOCATION   = os.environ.get("GCP_LOCATION", "us-central1")
+GEMINI_MODEL   = os.environ.get("GEMINI_MODEL", "gemini-1.5-pro")
+PORT           = int(os.environ.get("PORT", 8080))
 
-# Comma-separated allowed origins for CORS.
-# Default allows localhost dev + any *.run.app (Cloud Run) origin.
-CORS_ORIGINS_RAW = os.environ.get(
-    "CORS_ORIGINS",
-    "http://localhost:3000,http://localhost:5173,http://localhost:80"
-)
-CORS_ORIGINS = [o.strip() for o in CORS_ORIGINS_RAW.split(",") if o.strip()]
+# ServiceNow
+SN_INSTANCE = os.environ.get("SERVICENOW_INSTANCE", "")
+SN_USERNAME = os.environ.get("SERVICENOW_USERNAME", "")
+SN_PASSWORD = os.environ.get("SERVICENOW_PASSWORD", "")
+
+# Confluence
+CONF_BASE_URL       = os.environ.get("CONFLUENCE_BASE_URL", "")
+CONF_USERNAME       = os.environ.get("CONFLUENCE_USERNAME", "")
+CONF_API_TOKEN      = os.environ.get("CONFLUENCE_API_TOKEN", "")
+CONF_SPACE_KEY      = os.environ.get("CONFLUENCE_SPACE_KEY", "")
+CONF_PARENT_PAGE_ID = os.environ.get("CONFLUENCE_PARENT_PAGE_ID", "")
+
+# CORS
+CORS_ORIGINS = [
+    o.strip()
+    for o in os.environ.get("CORS_ORIGINS", "http://localhost:8501,http://localhost:3000").split(",")
+    if o.strip()
+]
 
 
-# ── Lifespan ─────────────────────────────────────────────────────────────────
+# ── Startup / shutdown ────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # ── Vertex AI (required) ──────────────────────────────────────
     if not GCP_PROJECT_ID:
         raise RuntimeError(
             "GCP_PROJECT_ID is not set.\n"
-            "Run: export GCP_PROJECT_ID=your-project  or  -e GCP_PROJECT_ID=... in Docker"
+            "Add it to backend.env:  GCP_PROJECT_ID=your-project-id"
         )
     init_gemini(GCP_PROJECT_ID, GCP_LOCATION, GEMINI_MODEL)
+
+    # ── ServiceNow (required for /from-servicenow endpoint) ───────
+    if SN_INSTANCE and SN_USERNAME and SN_PASSWORD:
+        init_servicenow(SN_INSTANCE, SN_USERNAME, SN_PASSWORD)
+    else:
+        log.warning(
+            "ServiceNow credentials not set — "
+            "POST /api/v1/rca/from-servicenow and GET /api/v1/rca/servicenow/* will fail. "
+            "Set SERVICENOW_INSTANCE, SERVICENOW_USERNAME, SERVICENOW_PASSWORD in backend.env"
+        )
+
+    # ── Confluence (required for auto-publish) ────────────────────
+    if CONF_BASE_URL and CONF_USERNAME and CONF_API_TOKEN and CONF_SPACE_KEY:
+        init_confluence(
+            CONF_BASE_URL, CONF_USERNAME, CONF_API_TOKEN,
+            CONF_SPACE_KEY, CONF_PARENT_PAGE_ID,
+        )
+    else:
+        log.warning(
+            "Confluence credentials not set — "
+            "publish_to_confluence=true will fail. "
+            "Set CONFLUENCE_BASE_URL, CONFLUENCE_USERNAME, CONFLUENCE_API_TOKEN, "
+            "CONFLUENCE_SPACE_KEY in backend.env"
+        )
+
     log.info(
-        "RCA Agent ready  project=%s  location=%s  model=%s  port=%s",
+        "RCA Agent ready  project=%s  location=%s  model=%s  port=%s  "
+        "servicenow=%s  confluence=%s",
         GCP_PROJECT_ID, GCP_LOCATION, GEMINI_MODEL, PORT,
+        bool(SN_INSTANCE), bool(CONF_BASE_URL),
     )
     yield
     log.info("RCA Agent shutting down")
 
 
-# ── App factory ───────────────────────────────────────────────────────────────
+# ── App ───────────────────────────────────────────────────────────
 app = FastAPI(
     title="RCA Agent API",
     description=(
         "AI-powered Root Cause Analysis pipeline.\n\n"
-        "Pulls incident data from ServiceNow, builds a timeline, validates quality, "
-        "and generates a Confluence post-mortem — powered by Vertex AI / Gemini.\n\n"
-        "Can be consumed directly via REST API or via the RCA Agent UI."
+        "**End-to-end flow:** `POST /api/v1/rca/from-servicenow` — supply an incident number, "
+        "the backend fetches from ServiceNow, runs all 4 AI stages via Vertex AI / Gemini, "
+        "and publishes the post-mortem to Confluence automatically.\n\n"
+        "**Manual flow:** `POST /api/v1/rca` — paste incident text directly.\n\n"
+        "**Debug:** `GET /api/v1/rca/servicenow/{number}` — test ServiceNow connectivity."
     ),
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
 )
 
-# CORS — allow the separate frontend service and local dev
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
-    allow_origin_regex=r"https://.*\.run\.app",   # any Cloud Run service
+    allow_origin_regex=r"https://.*\.run\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Routes
 app.include_router(rca_router)
 
 
-@app.get("/health", tags=["System"])
+@app.get("/health", tags=["System"], summary="Health check")
 async def health():
     return {
-        "status": "ok",
-        "project": GCP_PROJECT_ID,
-        "location": GCP_LOCATION,
-        "model": GEMINI_MODEL,
+        "status":              "ok",
+        "project":             GCP_PROJECT_ID,
+        "location":            GCP_LOCATION,
+        "model":               GEMINI_MODEL,
+        "servicenow_configured": bool(SN_INSTANCE and SN_USERNAME),
+        "confluence_configured": bool(CONF_BASE_URL and CONF_API_TOKEN),
     }
 
 
-# ── Dev entrypoint ────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("backend.main:app", host="0.0.0.0", port=PORT, reload=True)

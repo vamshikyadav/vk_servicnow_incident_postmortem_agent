@@ -15,7 +15,7 @@ spec:
       labels:
         app: rca-backend
     spec:
-      serviceAccountName: rca-agent-sa   # maps to GCP service account via Workload Identity
+      serviceAccountName: rca-agent-sa
       containers:
         - name: rca-backend
           image: REGION-docker.pkg.dev/PROJECT_ID/rca-agent/rca-backend:latest
@@ -44,6 +44,46 @@ spec:
                   key: CORS_ORIGINS
             - name: PORT
               value: "8080"
+            - name: SERVICENOW_INSTANCE
+              valueFrom:
+                secretKeyRef:
+                  name: rca-agent-secrets
+                  key: SERVICENOW_INSTANCE
+            - name: SERVICENOW_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: rca-agent-secrets
+                  key: SERVICENOW_USERNAME
+            - name: SERVICENOW_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rca-agent-secrets
+                  key: SERVICENOW_PASSWORD
+            - name: CONFLUENCE_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: rca-agent-secrets
+                  key: CONFLUENCE_BASE_URL
+            - name: CONFLUENCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: rca-agent-secrets
+                  key: CONFLUENCE_USERNAME
+            - name: CONFLUENCE_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: rca-agent-secrets
+                  key: CONFLUENCE_API_TOKEN
+            - name: CONFLUENCE_SPACE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: rca-agent-secrets
+                  key: CONFLUENCE_SPACE_KEY
+            - name: CONFLUENCE_PARENT_PAGE_ID
+              valueFrom:
+                secretKeyRef:
+                  name: rca-agent-secrets
+                  key: CONFLUENCE_PARENT_PAGE_ID
           resources:
             requests:
               cpu: "250m"
