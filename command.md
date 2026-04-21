@@ -12,6 +12,14 @@ docker rm rca-backend rca-frontend
 # Rebuild just one (e.g. after a code change)
 
 ```
+# Frontend
+docker build -f frontend/Dockerfile -t rca-frontend:latest ./frontend
+
+# Backend
+docker build -f backend/Dockerfile -t rca-backend:latest ./backend
+```
+
+```
 docker build -f backend/Dockerfile -t rca-backend:latest ./backend
 docker stop rca-backend && docker rm rca-backend
 docker run -d --name rca-backend -p 8080:8080 --env-file backend.env \
