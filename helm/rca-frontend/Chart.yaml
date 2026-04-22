@@ -1,0 +1,12 @@
+apiVersion: v2
+name: rca-frontend
+description: RCA Agent Frontend — Streamlit UI
+type: application
+version: 1.0.0
+appVersion: "2.0.0"
+keywords:
+  - rca
+  - streamlit
+  - frontend
+maintainers:
+  - name: Platform Reliability Engineering

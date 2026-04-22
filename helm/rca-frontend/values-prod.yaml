@@ -1,0 +1,45 @@
+# values-prod.yaml
+# Production overrides for rca-frontend
+# Usage: helm upgrade --install rca-frontend ./rca-frontend -f values-prod.yaml
+
+image:
+  repository: us-central1-docker.pkg.dev/YOUR_PROJECT_ID/rca-agent/rca-frontend
+  tag: "latest"
+  pullPolicy: Always
+
+# Internal cluster DNS — frontend talks to backend inside GKE
+backendUrl: "http://rca-backend.rca-agent.svc.cluster.local"
+
+replicaCount: 2
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "256Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+
+namespace:
+  create: false   # created by rca-backend chart
+  name: "rca-agent"
+
+ingress:
+  enabled: true
+  className: "gce"
+  annotations:
+    kubernetes.io/ingress.global-static-ip-name: "rca-agent-ip"
+    # Uncomment for managed TLS:
+    # networking.gke.io/managed-certificates: "rca-agent-cert"
+  hosts:
+    - host: ""    # leave empty to use the static IP directly
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []

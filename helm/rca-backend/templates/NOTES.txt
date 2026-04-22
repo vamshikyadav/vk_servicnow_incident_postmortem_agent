@@ -1,0 +1,48 @@
+RCA Agent Backend deployed successfully!
+
+Release:   {{ .Release.Name }}
+Namespace: {{ include "rca-backend.namespace" . }}
+Version:   {{ .Chart.AppVersion }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Check pod status:
+   kubectl get pods -n {{ include "rca-backend.namespace" . }} -l app.kubernetes.io/name={{ include "rca-backend.name" . }}
+
+2. Check health:
+   kubectl port-forward svc/{{ include "rca-backend.fullname" . }} 8080:80 -n {{ include "rca-backend.namespace" . }}
+   curl http://localhost:8080/health | jq .
+
+3. View logs:
+   kubectl logs -f deploy/{{ include "rca-backend.fullname" . }} -n {{ include "rca-backend.namespace" . }}
+
+4. Test ServiceNow connection:
+   curl http://localhost:8080/api/v1/rca/servicenow/INC0091847 | jq .
+
+5. Run full end-to-end (no publish):
+   curl -s -X POST http://localhost:8080/api/v1/rca/from-servicenow \
+     -H "Content-Type: application/json" \
+     -d '{"incident_number":"INC0091847","publish_to_confluence":false}' | jq .
+
+6. Swagger UI (after port-forward):
+   http://localhost:8080/docs
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{{- if not .Values.existingSecret }}
+
+⚠️  WARNING: Credentials are stored in a Helm-managed Secret.
+   For production, use existingSecret instead:
+
+   kubectl create secret generic rca-agent-secrets -n {{ include "rca-backend.namespace" . }} \
+     --from-literal=SERVICENOW_INSTANCE=... \
+     --from-literal=SERVICENOW_USERNAME=... \
+     --from-literal=SERVICENOW_PASSWORD=... \
+     --from-literal=CONFLUENCE_BASE_URL=... \
+     --from-literal=CONFLUENCE_USERNAME=... \
+     --from-literal=CONFLUENCE_API_TOKEN=... \
+     --from-literal=CONFLUENCE_SPACE_KEY=... \
+     --from-literal=CONFLUENCE_PARENT_PAGE_ID=...
+
+   Then redeploy with:
+   helm upgrade {{ .Release.Name }} ./rca-backend --set existingSecret=rca-agent-secrets
+{{- end }}

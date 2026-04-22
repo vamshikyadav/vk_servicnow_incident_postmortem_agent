@@ -1,0 +1,29 @@
+RCA Agent Frontend deployed successfully!
+
+Release:   {{ .Release.Name }}
+Namespace: {{ include "rca-frontend.namespace" . }}
+Version:   {{ .Chart.AppVersion }}
+Backend:   {{ .Values.backendUrl }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Check pod status:
+   kubectl get pods -n {{ include "rca-frontend.namespace" . }} -l app.kubernetes.io/name={{ include "rca-frontend.name" . }}
+
+2. Access the UI:
+{{- if .Values.ingress.enabled }}
+   kubectl get ingress {{ include "rca-frontend.fullname" . }} -n {{ include "rca-frontend.namespace" . }}
+   # Open the ADDRESS shown in the output
+{{- else }}
+   kubectl port-forward svc/{{ include "rca-frontend.fullname" . }} 8501:80 -n {{ include "rca-frontend.namespace" . }}
+   # Then open: http://localhost:8501
+{{- end }}
+
+3. View logs:
+   kubectl logs -f deploy/{{ include "rca-frontend.fullname" . }} -n {{ include "rca-frontend.namespace" . }}
+
+4. Verify backend connection from inside the pod:
+   kubectl exec -it deploy/{{ include "rca-frontend.fullname" . }} -n {{ include "rca-frontend.namespace" . }} -- \
+     python -c "import requests; print(requests.get('{{ .Values.backendUrl }}/health').json())"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

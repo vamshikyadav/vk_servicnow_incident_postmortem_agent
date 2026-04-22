@@ -1,0 +1,48 @@
+# values-prod.yaml
+# Production overrides for rca-backend
+# Usage: helm upgrade --install rca-backend ./rca-backend -f values-prod.yaml
+#
+# Fill in YOUR values before deploying.
+
+image:
+  repository: us-central1-docker.pkg.dev/YOUR_PROJECT_ID/rca-agent/rca-backend
+  tag: "latest"
+  pullPolicy: Always
+
+gcp:
+  projectId: "YOUR_PROJECT_ID"
+  location: "us-central1"
+  geminiModel: "gemini-1.5-pro"
+
+# Use a pre-created K8s Secret — never put real creds in values files
+existingSecret: "rca-agent-secrets"
+
+corsOrigins: "https://YOUR_FRONTEND_URL"
+
+replicaCount: 2
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+resources:
+  requests:
+    cpu: "250m"
+    memory: "256Mi"
+  limits:
+    cpu: "1000m"
+    memory: "512Mi"
+
+serviceAccount:
+  create: true
+  name: "rca-agent-sa"
+  gcpServiceAccount: "rca-agent-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com"
+
+namespace:
+  create: true
+  name: "rca-agent"
+
+ingress:
+  enabled: false   # backend is ClusterIP — only the frontend ingress is public
