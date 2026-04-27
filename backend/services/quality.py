@@ -1,7 +1,7 @@
 """Stage 3 — Quality validation: score the RCA and flag gaps."""
 from __future__ import annotations
-from ..models import RCARequest, QualityResult, QualityCheck
-from .gemini import call_gemini_json
+from models import RCARequest, QualityResult, QualityCheck
+from gemini import call_gemini_json
 
 
 PROMPT = """You are an RCA quality validation agent. Score this RCA against five criteria.
@@ -45,16 +45,16 @@ Return ONLY valid JSON (no markdown, no backticks):
 async def run_quality(req: RCARequest) -> QualityResult:
     data = await call_gemini_json(
         PROMPT.format(
-            ci=req.ci,
-            resolution_notes=req.resolution_notes,
-            work_notes=req.work_notes,
+            ci               = req.ci,
+            resolution_notes = req.resolution_notes,
+            work_notes       = req.work_notes,
         )
     )
     checks = [QualityCheck(**c) for c in data.get("checks", [])]
     return QualityResult(
-        overall_quality=data.get("overall_quality", "medium"),
-        quality_score=int(data.get("quality_score", 0)),
-        checks=checks,
-        blocking_issues=data.get("blocking_issues", []),
-        recommendations=data.get("recommendations", []),
+        overall_quality  = data.get("overall_quality", "medium"),
+        quality_score    = int(data.get("quality_score", 0)),
+        checks           = checks,
+        blocking_issues  = data.get("blocking_issues", []),
+        recommendations  = data.get("recommendations", []),
     )

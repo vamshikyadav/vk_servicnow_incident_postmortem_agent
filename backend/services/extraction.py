@@ -1,7 +1,7 @@
 """Stage 1 — Data extraction: pull structured fields, filter automated noise."""
 from __future__ import annotations
-from ..models import RCARequest, ExtractionResult, HumanNote
-from .gemini import call_gemini_json
+from models import RCARequest, ExtractionResult, HumanNote
+from gemini import call_gemini_json
 
 
 PROMPT = """You are an RCA data extraction agent processing a ServiceNow incident export.
@@ -47,27 +47,27 @@ Return ONLY a valid JSON object (no markdown, no backticks, no preamble) with th
 async def run_extraction(req: RCARequest) -> ExtractionResult:
     data = await call_gemini_json(
         PROMPT.format(
-            incident_id=req.incident_id,
-            severity=req.severity,
-            ci=req.ci,
-            opened_at=req.opened_at,
-            closed_at=req.closed_at,
-            team=req.team,
-            work_notes=req.work_notes,
-            resolution_notes=req.resolution_notes,
+            incident_id      = req.incident_id,
+            severity         = req.severity,
+            ci               = req.ci,
+            opened_at        = req.opened_at,
+            closed_at        = req.closed_at,
+            team             = req.team,
+            work_notes       = req.work_notes,
+            resolution_notes = req.resolution_notes,
         )
     )
     notes = [HumanNote(**n) for n in data.get("human_notes", [])]
     return ExtractionResult(
-        incident_id=data.get("incident_id", req.incident_id),
-        severity=data.get("severity", req.severity),
-        ci_name=data.get("ci_name", req.ci),
-        ci_attached=bool(data.get("ci_attached", False)),
-        opened_at=data.get("opened_at", req.opened_at),
-        closed_at=data.get("closed_at", req.closed_at),
-        team=data.get("team", req.team),
-        human_notes=notes,
-        automated_entries_filtered=int(data.get("automated_entries_filtered", 0)),
-        key_actors=data.get("key_actors", []),
-        affected_components=data.get("affected_components", []),
+        incident_id                = data.get("incident_id", req.incident_id),
+        severity                   = data.get("severity", req.severity),
+        ci_name                    = data.get("ci_name", req.ci),
+        ci_attached                = bool(data.get("ci_attached", False)),
+        opened_at                  = data.get("opened_at", req.opened_at),
+        closed_at                  = data.get("closed_at", req.closed_at),
+        team                       = data.get("team", req.team),
+        human_notes                = notes,
+        automated_entries_filtered = int(data.get("automated_entries_filtered", 0)),
+        key_actors                 = data.get("key_actors", []),
+        affected_components        = data.get("affected_components", []),
     )

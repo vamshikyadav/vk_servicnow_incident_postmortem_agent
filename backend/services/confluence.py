@@ -1,7 +1,7 @@
 """Stage 4 — Confluence delivery: generate standardised post-mortem page."""
 from __future__ import annotations
-from ..models import RCARequest, ConfluenceResult, ConfluenceSection, ActionItem
-from .gemini import call_gemini_json
+from models import RCARequest, ConfluenceResult, ConfluenceSection, ActionItem
+from gemini import call_gemini_json
 
 
 PROMPT = """You are generating a professional Confluence post-mortem page for a production incident.
@@ -57,27 +57,27 @@ async def run_confluence(
 ) -> ConfluenceResult:
     data = await call_gemini_json(
         PROMPT.format(
-            incident_id=req.incident_id,
-            severity=req.severity,
-            ci=req.ci,
-            opened_at=req.opened_at,
-            closed_at=req.closed_at,
-            team=req.team,
-            mttr_minutes=mttr_minutes,
-            eureka_time=eureka_time,
-            eureka_description=eureka_description,
-            quality_score=quality_score,
-            overall_quality=overall_quality,
-            work_notes=req.work_notes,
-            resolution_notes=req.resolution_notes,
+            incident_id       = req.incident_id,
+            severity          = req.severity,
+            ci                = req.ci,
+            opened_at         = req.opened_at,
+            closed_at         = req.closed_at,
+            team              = req.team,
+            mttr_minutes      = mttr_minutes,
+            eureka_time       = eureka_time,
+            eureka_description= eureka_description,
+            quality_score     = quality_score,
+            overall_quality   = overall_quality,
+            work_notes        = req.work_notes,
+            resolution_notes  = req.resolution_notes,
         ),
         max_tokens=2000,
     )
     sections = [ConfluenceSection(**s) for s in data.get("sections", [])]
-    actions = [ActionItem(**a) for a in data.get("action_items", [])]
+    actions  = [ActionItem(**a) for a in data.get("action_items", [])]
     return ConfluenceResult(
-        page_title=data.get("page_title", f"{req.incident_id} Post-Mortem"),
-        sections=sections,
-        action_items=actions,
-        tags=data.get("tags", []),
+        page_title   = data.get("page_title", f"{req.incident_id} Post-Mortem"),
+        sections     = sections,
+        action_items = actions,
+        tags         = data.get("tags", []),
     )

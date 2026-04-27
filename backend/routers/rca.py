@@ -3,7 +3,7 @@ RCA REST API router.
 
 Endpoints:
   POST /api/v1/rca                       manual text → full pipeline
-  POST /api/v1/rca/from-servicenow       incident number → ServiceNow fetch → pipeline → Confluence publish
+  POST /api/v1/rca/from-servicenow       incident number → ServiceNow → pipeline → Confluence
   GET  /api/v1/rca/servicenow/{number}   fetch raw incident from ServiceNow (no pipeline)
   POST /api/v1/rca/extract               stage 1 only
   POST /api/v1/rca/timeline              stage 2 only
@@ -15,12 +15,12 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Path
 
-from ..models import (
+from models import (
     RCARequest, SNRCARequest, RCAResponse,
     ConfluencePublishResult, SNFetchResult,
     ExtractionResult, TimelineResult, QualityResult, ConfluenceResult,
 )
-from ..services import (
+from services import (
     run_extraction, run_timeline, run_quality, run_confluence,
     fetch_incident, format_audit_for_llm,
     create_postmortem_page, page_exists,
@@ -30,7 +30,7 @@ log = logging.getLogger("rca.router")
 router = APIRouter(prefix="/api/v1/rca", tags=["RCA Pipeline"])
 
 
-# ── Core pipeline (reused by both endpoints) ──────────────────────
+# ── Core pipeline ─────────────────────────────────────────────────
 
 async def _run_pipeline(req: RCARequest, publish: bool = False) -> RCAResponse:
     errors: dict[str, str] = {}
@@ -114,14 +114,9 @@ async def _run_pipeline(req: RCARequest, publish: bool = False) -> RCAResponse:
     )
 
 
-# ── POST /api/v1/rca — manual text input ─────────────────────────
+# ── POST /api/v1/rca ─────────────────────────────────────────────
 
-@router.post(
-    "",
-    response_model=RCAResponse,
-    summary="Full pipeline — manual text input",
-    description="Paste incident text directly. Runs all 4 stages. Does not auto-publish to Confluence.",
-)
+@router.post("", response_model=RCAResponse, summary="Full pipeline — manual text input")
 async def run_full_rca(req: RCARequest) -> RCAResponse:
     log.info("Manual RCA pipeline  incident=%s", req.incident_id)
     result = await _run_pipeline(req, publish=False)
@@ -129,17 +124,12 @@ async def run_full_rca(req: RCARequest) -> RCAResponse:
     return result
 
 
-# ── POST /api/v1/rca/from-servicenow — full end-to-end ───────────
+# ── POST /api/v1/rca/from-servicenow ─────────────────────────────
 
 @router.post(
     "/from-servicenow",
     response_model=RCAResponse,
     summary="Full end-to-end: ServiceNow → Gemini → Confluence",
-    description=(
-        "Supply just an incident number. The backend fetches all incident data, "
-        "audit logs, and work notes from ServiceNow, runs the full AI pipeline, "
-        "and automatically publishes the post-mortem to Confluence."
-    ),
 )
 async def run_from_servicenow(req: SNRCARequest) -> RCAResponse:
     log.info("ServiceNow RCA pipeline  incident=%s", req.incident_number)
@@ -187,13 +177,12 @@ async def run_from_servicenow(req: SNRCARequest) -> RCAResponse:
     return result
 
 
-# ── GET /api/v1/rca/servicenow/{number} — fetch only ─────────────
+# ── GET /api/v1/rca/servicenow/{number} ──────────────────────────
 
 @router.get(
     "/servicenow/{incident_number}",
     response_model=SNFetchResult,
     summary="Fetch raw incident from ServiceNow — no pipeline",
-    description="Fetches incident + work notes + audit log from ServiceNow. Use this to verify your ServiceNow connection before running the full pipeline.",
 )
 async def fetch_sn_incident(
     incident_number: str = Path(..., examples=["INC0091847"]),
@@ -220,7 +209,7 @@ async def fetch_sn_incident(
     )
 
 
-# ── Individual stage endpoints ────────────────────────────────────
+# ── Individual stages ─────────────────────────────────────────────
 
 @router.post("/extract",    response_model=ExtractionResult, summary="Stage 1 — extraction only")
 async def extract_only(req: RCARequest) -> ExtractionResult:
@@ -246,7 +235,7 @@ async def quality_only(req: RCARequest) -> QualityResult:
         raise HTTPException(status_code=502, detail=str(e))
 
 
-@router.post("/confluence",  response_model=ConfluenceResult, summary="Stage 4 — generate content only (no publish)")
+@router.post("/confluence",  response_model=ConfluenceResult, summary="Stage 4 — generate content only")
 async def confluence_only(req: RCARequest) -> ConfluenceResult:
     try:
         return await run_confluence(req)

@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 
 import httpx
 
-from ..models import ConfluenceResult
+from models import ConfluenceResult
 
 log = logging.getLogger("rca.confluence_publish")
 
