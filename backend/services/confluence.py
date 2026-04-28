@@ -1,7 +1,7 @@
 """Stage 4 — Confluence delivery: generate standardised post-mortem page."""
 from __future__ import annotations
 from models import RCARequest, ConfluenceResult, ConfluenceSection, ActionItem
-from gemini import call_gemini_json
+from .gemini import call_gemini_json
 
 
 PROMPT = """You are generating a professional Confluence post-mortem page for a production incident.

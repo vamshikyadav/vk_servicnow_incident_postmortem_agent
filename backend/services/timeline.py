@@ -1,7 +1,7 @@
 """Stage 2 — Timeline & analysis: MTTR, Eureka moment, chronological narrative."""
 from __future__ import annotations
 from models import RCARequest, TimelineResult, TimelineEvent, EurekaEvent
-from gemini import call_gemini_json
+from .gemini import call_gemini_json
 
 
 PROMPT = """You are an RCA timeline analyst. Build a precise chronological analysis of this incident.

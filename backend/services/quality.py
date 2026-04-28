@@ -1,7 +1,7 @@
 """Stage 3 — Quality validation: score the RCA and flag gaps."""
 from __future__ import annotations
 from models import RCARequest, QualityResult, QualityCheck
-from gemini import call_gemini_json
+from .gemini import call_gemini_json
 
 
 PROMPT = """You are an RCA quality validation agent. Score this RCA against five criteria.

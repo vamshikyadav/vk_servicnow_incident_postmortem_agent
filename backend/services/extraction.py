@@ -1,7 +1,7 @@
 """Stage 1 — Data extraction: pull structured fields, filter automated noise."""
 from __future__ import annotations
 from models import RCARequest, ExtractionResult, HumanNote
-from gemini import call_gemini_json
+from .gemini import call_gemini_json
 
 
 PROMPT = """You are an RCA data extraction agent processing a ServiceNow incident export.
