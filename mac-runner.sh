@@ -41,3 +41,29 @@ tar xzf ./actions-runner-osx-arm64.tar.gz
 ./svc.sh start     # Start the runner
 ./svc.sh status    # Check status
 ./svc.sh uninstall # Remove the service
+
+
+__________________________________
+launchctl load /Users/github-runner/Library/LaunchAgents/actions.runner.DESIGN_STUDIO.ip-10-189-164-142.plist
+~/actions-runner/svc.sh start
+# Uninstall cleanly
+~/actions-runner/svc.sh uninstall
+
+# Reinstall
+~/actions-runner/svc.sh install
+
+# Start
+~/actions-runner/svc.sh start
+
+whoami  # should say: github-runner
+
+sudo -u github-runner -i
+cd actions-runner
+./svc.sh install
+./svc.sh start
+
+
+./svc.sh status
+
+# View logs
+cat ~/actions-runner/_diag/*.log | tail -50
