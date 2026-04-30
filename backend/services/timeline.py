@@ -54,7 +54,7 @@ async def run_timeline(req: RCARequest) -> TimelineResult:
             opened_at        = req.opened_at,
             closed_at        = req.closed_at,
             team             = req.team,
-            work_notes       = req.work_notes,
+            work_notes       = (req.work_notes or "")[:8000],  # cap to avoid prompt overflow
             resolution_notes = req.resolution_notes,
         )
     )

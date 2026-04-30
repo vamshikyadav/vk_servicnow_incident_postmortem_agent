@@ -94,6 +94,12 @@ async def fetch_incident(incident_number: str) -> SNIncident:
     # Sanitize: uppercase and strip whitespace (ServiceNow is case-sensitive)
     incident_number = incident_number.strip().upper()
 
+    def _dv(val, default="") -> str:
+        """Safely extract display_value or value from a field that may be a dict or plain string."""
+        if isinstance(val, dict):
+            return str(val.get("display_value") or val.get("value") or default)
+        return str(val) if val is not None else default
+
     async with httpx.AsyncClient(
         auth=_auth(),
         headers=_headers(),
@@ -132,7 +138,8 @@ async def fetch_incident(incident_number: str) -> SNIncident:
             )
 
         inc = records[0]
-        sys_id = inc.get("sys_id", "")
+        sys_id_raw = inc.get("sys_id", {})
+        sys_id = sys_id_raw.get("value", "") if isinstance(sys_id_raw, dict) else str(sys_id_raw)
         log.info("Incident found  sys_id=%s", sys_id)
 
         # ── 2. CI name from CMDB ──────────────────────────────────
@@ -186,7 +193,12 @@ async def fetch_incident(incident_number: str) -> SNIncident:
         if inline_notes and inline_notes not in "\n".join(work_notes_lines):
             work_notes_lines.append(inline_notes)
 
-        work_notes_raw = "\n".join(work_notes_lines) if work_notes_lines else "(no work notes found)"
+        raw_joined = "\n".join(work_notes_lines) if work_notes_lines else "(no work notes found)"
+        # Cap at 10000 chars to prevent Gemini prompt overflow on large incidents
+        if len(raw_joined) > 10000:
+            log.warning("work_notes_raw truncated from %d to 10000 chars", len(raw_joined))
+            raw_joined = raw_joined[:10000] + "\n... [truncated]"
+        work_notes_raw = raw_joined
 
         # ── 4. Audit log ──────────────────────────────────────────
         log.info("Fetching audit log for sys_id=%s", sys_id)
@@ -217,17 +229,19 @@ async def fetch_incident(incident_number: str) -> SNIncident:
             sys_id        = sys_id,
             incident_id   = inc.get("number", incident_number),
             severity      = _sev_label(
-                inc.get("impact","3"), inc.get("urgency","3"), inc.get("priority","3")
+                _dv(inc.get("impact","3"), "3"),
+                _dv(inc.get("urgency","3"), "3"),
+                _dv(inc.get("priority","3"), "3"),
             ),
             ci            = ci_string,
             ci_sys_id     = ci_value,
-            opened_at     = inc.get("opened_at", ""),
-            closed_at     = inc.get("closed_at", ""),
+            opened_at     = _dv(inc.get("opened_at", ""), ""),
+            closed_at     = _dv(inc.get("closed_at", ""), ""),
             team          = team or assigned_to or "Unknown",
-            short_desc    = inc.get("short_description", ""),
+            short_desc    = _dv(inc.get("short_description", ""), ""),
             description   = _clean_html(inc.get("description", "")),
             resolution    = resolution,
-            state         = inc.get("state", ""),
+            state         = _dv(inc.get("state", ""), ""),
             assigned_to   = assigned_to,
             work_notes_raw = work_notes_raw,
             audit_entries  = audit_entries,

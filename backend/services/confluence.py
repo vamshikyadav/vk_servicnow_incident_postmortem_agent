@@ -68,10 +68,10 @@ async def run_confluence(
             eureka_description= eureka_description,
             quality_score     = quality_score,
             overall_quality   = overall_quality,
-            work_notes        = req.work_notes,
+            work_notes        = (req.work_notes or "")[:6000],  # cap to avoid prompt overflow
             resolution_notes  = req.resolution_notes,
         ),
-        max_tokens=2000,
+        max_tokens=6000,
     )
     sections = [ConfluenceSection(**s) for s in data.get("sections", [])]
     actions  = [ActionItem(**a) for a in data.get("action_items", [])]

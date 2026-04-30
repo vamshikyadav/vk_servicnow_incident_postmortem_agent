@@ -47,7 +47,7 @@ async def run_quality(req: RCARequest) -> QualityResult:
         PROMPT.format(
             ci               = req.ci,
             resolution_notes = req.resolution_notes,
-            work_notes       = req.work_notes,
+            work_notes       = (req.work_notes or "")[:8000],  # cap to avoid prompt overflow
         )
     )
     checks = [QualityCheck(**c) for c in data.get("checks", [])]

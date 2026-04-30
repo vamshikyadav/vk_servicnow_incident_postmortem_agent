@@ -22,7 +22,7 @@ def init_gemini(project: str, location: str, model_name: str) -> None:
              model_name, project, location)
 
 
-async def call_gemini(prompt: str, max_tokens: int = 1500) -> str:
+async def call_gemini(prompt: str, max_tokens: int = 4096) -> str:
     """Call Gemini and return the raw text response."""
     if _model is None:
         raise RuntimeError("Gemini not initialised — call init_gemini() first")
@@ -39,39 +39,52 @@ async def call_gemini(prompt: str, max_tokens: int = 1500) -> str:
     return text
 
 
-async def call_gemini_json(prompt: str, max_tokens: int = 1500) -> dict:
+async def call_gemini_json(prompt: str, max_tokens: int = 4096) -> dict:
     """
     Call Gemini expecting a JSON response.
     Strips markdown fences, extracts first JSON object/array, and parses.
+    Retries up to 3 times with increasing max_tokens if JSON is truncated.
     Raises ValueError on bad JSON or if the result is not a dict.
     """
-    raw = await call_gemini(prompt, max_tokens)
+    import asyncio
+    last_error = None
+    token_steps = [max_tokens, max_tokens + 2048, max_tokens + 4096]
 
-    # Strip ```json ... ``` fences if present
-    clean = re.sub(r"^```(?:json)?\s*", "", raw.strip(), flags=re.IGNORECASE)
-    clean = re.sub(r"\s*```$", "", clean).strip()
+    for attempt, tokens in enumerate(token_steps):
+        raw = await call_gemini(prompt, tokens)
 
-    # If there's surrounding text, extract the first {...} or [...] block
-    match = re.search(r"(\{.*\}|\[.*\])", clean, re.DOTALL)
-    if match:
-        clean = match.group(1)
+        # Strip ```json ... ``` fences if present
+        clean = re.sub(r"^```(?:json)?\s*", "", raw.strip(), flags=re.IGNORECASE)
+        clean = re.sub(r"\s*```$", "", clean).strip()
 
-    try:
-        parsed = json.loads(clean)
-    except json.JSONDecodeError as e:
-        log.error("JSON parse failed. raw=%s", raw[:300])
-        raise ValueError(f"Gemini did not return valid JSON: {e}") from e
+        # If there's surrounding text, extract the first {...} or [...] block
+        match = re.search(r"(\{.*\}|\[.*\])", clean, re.DOTALL)
+        if match:
+            clean = match.group(1)
 
-    # Guard against double-encoded JSON (Gemini returning a JSON string)
-    if isinstance(parsed, str):
         try:
-            parsed = json.loads(parsed)
+            parsed = json.loads(clean)
         except json.JSONDecodeError as e:
-            log.error("Double-encoded JSON parse failed. parsed=%s", parsed[:300])
-            raise ValueError(f"Gemini returned a double-encoded JSON string: {e}") from e
+            last_error = e
+            log.warning("JSON parse failed attempt=%d tokens=%d error=%s raw_tail=%s",
+                        attempt + 1, tokens, e, raw[-200:])
+            if attempt < len(token_steps) - 1:
+                await asyncio.sleep(1)
+                continue
+            log.error("All retries exhausted. raw=%s", raw[:500])
+            raise ValueError(f"Gemini did not return valid JSON: {e}") from e
 
-    if not isinstance(parsed, dict):
-        log.error("Expected dict from Gemini, got %s: %s", type(parsed).__name__, str(parsed)[:300])
-        raise ValueError(f"Gemini returned {type(parsed).__name__} instead of a JSON object")
+        # Guard against double-encoded JSON (Gemini returning a JSON string)
+        if isinstance(parsed, str):
+            try:
+                parsed = json.loads(parsed)
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Gemini returned a double-encoded JSON string: {e}") from e
 
-    return parsed
+        if not isinstance(parsed, dict):
+            log.error("Expected dict from Gemini, got %s: %s", type(parsed).__name__, str(parsed)[:300])
+            raise ValueError(f"Gemini returned {type(parsed).__name__} instead of a JSON object")
+
+        return parsed
+
+    raise ValueError(f"Gemini did not return valid JSON after retries: {last_error}")
