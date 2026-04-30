@@ -30,6 +30,7 @@ Instructions:
     recovery = service restored and validated
 - Mark is_eureka: true on the single event where root cause was confirmed
 - narrative_summary: 2-3 sentences plain-English story of what happened
+- IMPORTANT: Limit timeline to a maximum of 15 most significant events only
 
 Return ONLY valid JSON (no markdown, no backticks):
 {{
@@ -56,7 +57,8 @@ async def run_timeline(req: RCARequest) -> TimelineResult:
             team             = req.team,
             work_notes       = (req.work_notes or "")[:8000],  # cap to avoid prompt overflow
             resolution_notes = req.resolution_notes,
-        )
+        ),
+        max_tokens=8192,
     )
     eureka_raw = data.get("eureka_moment", {})
     timeline   = [TimelineEvent(**e) for e in data.get("timeline", [])]

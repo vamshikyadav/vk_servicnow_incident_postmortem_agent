@@ -33,7 +33,11 @@ def init_confluence(
     parent_page_id: str,
 ) -> None:
     global CONF_BASE_URL, CONF_USERNAME, CONF_API_TOKEN, CONF_SPACE_KEY, CONF_PARENT_PAGE_ID
-    CONF_BASE_URL       = base_url.rstrip("/")
+    # Ensure /wiki suffix is present for Atlassian Cloud
+    base_url = base_url.rstrip("/")
+    if "atlassian.net" in base_url and not base_url.endswith("/wiki"):
+        base_url = base_url + "/wiki"
+    CONF_BASE_URL = base_url
     CONF_USERNAME       = username
     CONF_API_TOKEN      = api_token
     CONF_SPACE_KEY      = space_key
