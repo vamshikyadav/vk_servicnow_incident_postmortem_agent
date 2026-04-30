@@ -85,7 +85,15 @@ async def fetch_incident(incident_number: str) -> SNIncident:
     if not SN_INSTANCE:
         raise RuntimeError("ServiceNow not initialised — call init_servicenow() first")
 
-    async with httpx.AsyncClient(auth=_auth(), headers=_headers(), timeout=SN_TIMEOUT) as client:
+    # Sanitize: uppercase and strip whitespace (ServiceNow is case-sensitive)
+    incident_number = incident_number.strip().upper()
+
+    async with httpx.AsyncClient(
+        auth=_auth(),
+        headers=_headers(),
+        timeout=SN_TIMEOUT,
+        follow_redirects=True,      # some SN instances redirect HTTP → HTTPS
+    ) as client:
 
         # ── 1. Incident record ────────────────────────────────────
         log.info("Fetching incident %s from ServiceNow", incident_number)
@@ -94,6 +102,7 @@ async def fetch_incident(incident_number: str) -> SNIncident:
             params={
                 "sysparm_query":  f"number={incident_number}",
                 "sysparm_limit":  "1",
+                "sysparm_display_value": "all",   # return both value + display_value for reference fields
                 "sysparm_fields": (
                     "sys_id,number,impact,urgency,priority,cmdb_ci,"
                     "opened_at,closed_at,assignment_group,short_description,"
@@ -101,22 +110,34 @@ async def fetch_incident(incident_number: str) -> SNIncident:
                 ),
             },
         )
+        log.info("ServiceNow incident query status=%s url=%s", inc_resp.status_code, inc_resp.url)
         inc_resp.raise_for_status()
         inc_data = inc_resp.json()
 
         records = inc_data.get("result", [])
         if not records:
-            raise ValueError(f"Incident {incident_number} not found in ServiceNow")
+            log.error(
+                "Incident %s not found. SN instance=%s response=%s",
+                incident_number, SN_INSTANCE, inc_data
+            )
+            raise ValueError(
+                f"Incident {incident_number} not found in ServiceNow. "
+                f"Check the incident number, SN instance URL, and credentials."
+            )
 
         inc = records[0]
         sys_id = inc.get("sys_id", "")
         log.info("Incident found  sys_id=%s", sys_id)
 
         # ── 2. CI name from CMDB ──────────────────────────────────
-        ci_raw    = inc.get("cmdb_ci", {})
-        ci_value  = ci_raw.get("value", "")   # sys_id of the CI
-        ci_display = ci_raw.get("display_value", "")
-        ci_label  = ci_display or "Unknown CI"
+        ci_raw = inc.get("cmdb_ci", {})
+        if isinstance(ci_raw, dict):
+            ci_value   = ci_raw.get("value", "")
+            ci_display = ci_raw.get("display_value", "")
+        else:
+            ci_value   = str(ci_raw)
+            ci_display = ""
+        ci_label = ci_display or "Unknown CI"
 
         if ci_value:
             try:
@@ -180,8 +201,8 @@ async def fetch_incident(incident_number: str) -> SNIncident:
         resolution = _clean_html(inc.get("close_notes", "")) or _clean_html(inc.get("description", ""))
 
         # ── 6. Team / assignment group ────────────────────────────
-        ag_raw  = inc.get("assignment_group", {})
-        team    = ag_raw.get("display_value", "") if isinstance(ag_raw, dict) else str(ag_raw)
+        ag_raw = inc.get("assignment_group", {})
+        team   = ag_raw.get("display_value", "") if isinstance(ag_raw, dict) else str(ag_raw)
 
         at_raw       = inc.get("assigned_to", {})
         assigned_to  = at_raw.get("display_value", "") if isinstance(at_raw, dict) else str(at_raw)
