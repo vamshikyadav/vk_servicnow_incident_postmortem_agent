@@ -67,10 +67,16 @@ def _sev_label(impact: str, urgency: str, priority: str) -> str:
     return mapping.get(priority, f"Priority {priority}")
 
 
-def _clean_html(text: str) -> str:
-    """Strip basic HTML tags from work notes."""
+def _clean_html(text) -> str:
+    """Strip basic HTML tags from work notes.
+    Handles plain strings, dicts (from sysparm_display_value=all), and None.
+    """
     import re
-    text = re.sub(r"<[^>]+>", "", text or "")
+    if isinstance(text, dict):
+        # sysparm_display_value=all returns {"value": ..., "display_value": ...}
+        text = text.get("display_value") or text.get("value") or ""
+    text = str(text or "")
+    text = re.sub(r"<[^>]+>", "", text)
     text = text.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
     return text.strip()
 
