@@ -246,19 +246,25 @@ async def format_audit_for_llm(incident: SNIncident) -> str:
         "business_stc", "time_worked",
     }
 
+    def _str(val, default="") -> str:
+        """Extract a plain string from a value that may be a dict (sysparm_display_value=all)."""
+        if isinstance(val, dict):
+            return str(val.get("display_value") or val.get("value") or default)
+        return str(val or default)
+
     lines = [incident.work_notes_raw, ""]
 
     if incident.audit_entries:
         lines.append("--- Audit trail ---")
         for entry in incident.audit_entries:
-            field = entry.get("fieldname", "")
+            field = _str(entry.get("fieldname", ""))
             if field in SKIP_FIELDS:
                 continue
-            ts      = entry.get("sys_created_on", "")[:16]
-            by      = entry.get("sys_created_by", "system")
-            old_val = entry.get("oldvalue", "")
-            new_val = entry.get("newvalue", "")
-            reason  = entry.get("reason", "")
+            ts      = _str(entry.get("sys_created_on", ""))[:16]
+            by      = _str(entry.get("sys_created_by", "system"))
+            old_val = _str(entry.get("oldvalue", ""))
+            new_val = _str(entry.get("newvalue", ""))
+            reason  = _str(entry.get("reason", ""))
             line    = f"{ts} [audit] {by} changed {field}: '{old_val}' → '{new_val}'"
             if reason:
                 line += f"  ({reason})"
