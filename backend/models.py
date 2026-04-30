@@ -62,8 +62,16 @@ class SNRCARequest(BaseModel):
 
 class HumanNote(BaseModel):
     time:        str
-    author_type: Literal["human", "automated"]
+    author_type: str = "human"
     note:        str
+
+    @classmethod
+    def model_validate(cls, obj, *args, **kwargs):
+        if isinstance(obj, dict) and "author_type" in obj:
+            obj = dict(obj)
+            v = obj["author_type"].lower().strip()
+            obj["author_type"] = "automated" if "auto" in v or "system" in v else "human"
+        return super().model_validate(obj, *args, **kwargs)
 
 
 class ExtractionResult(BaseModel):
@@ -131,7 +139,20 @@ class QualityCheck(BaseModel):
     name:     str
     passed:   bool
     detail:   str
-    severity: Literal["info", "warn", "fail"]
+    severity: str = "info"
+
+    @classmethod
+    def model_validate(cls, obj, *args, **kwargs):
+        if isinstance(obj, dict) and "severity" in obj:
+            obj = dict(obj)
+            v = obj["severity"].lower().strip()
+            if v in ("fail", "error", "critical", "block"):
+                obj["severity"] = "fail"
+            elif v in ("warn", "warning", "caution"):
+                obj["severity"] = "warn"
+            else:
+                obj["severity"] = "info"
+        return super().model_validate(obj, *args, **kwargs)
 
 
 class QualityResult(BaseModel):

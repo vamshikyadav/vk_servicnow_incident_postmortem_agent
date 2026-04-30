@@ -97,13 +97,16 @@ def _build_confluence_storage(
     )
 
     # ── Sections ──────────────────────────────────────────────────
+    import html as _html
     for section in result.sections:
-        lines.append(f"<h2>{section.heading}</h2>")
+        safe_heading = _html.escape(section.heading)
+        lines.append(f"<h2>{safe_heading}</h2>")
         # Wrap each paragraph (split by double newline)
         for para in section.content.split("\n\n"):
             para = para.strip()
             if para:
-                lines.append(f"<p>{para}</p>")
+                safe_para = _html.escape(para)
+                lines.append(f"<p>{safe_para}</p>")
 
     # ── Action items table ────────────────────────────────────────
     if result.action_items:
@@ -115,8 +118,8 @@ def _build_confluence_storage(
         )
         for item in result.action_items:
             lines.append(
-                f"<tr><td>{item.owner}</td><td>{item.task}</td>"
-                f"<td>{item.due}</td>"
+                f"<tr><td>{_html.escape(item.owner)}</td><td>{_html.escape(item.task)}</td>"
+                f"<td>{_html.escape(item.due)}</td>"
                 f'<td><ac:structured-macro ac:name="status">'
                 f'<ac:parameter ac:name="colour">Yellow</ac:parameter>'
                 f'<ac:parameter ac:name="title">Open</ac:parameter>'
