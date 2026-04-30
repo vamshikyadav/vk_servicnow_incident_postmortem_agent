@@ -163,19 +163,29 @@ async def create_postmortem_page(
         opened_at, closed_at, team,
     )
 
+    # Sanitize tags: Confluence labels can't have spaces, colons, or special chars
+    def _sanitize_label(tag: str) -> str:
+        import re
+        # Remove everything after colon (e.g. "incident severity: P3" -> "P3")
+        if ":" in tag:
+            tag = tag.split(":")[-1]
+        # Replace spaces/special chars with hyphens, lowercase
+        tag = re.sub(r"[^a-z0-9\-]", "-", tag.lower().strip())
+        tag = re.sub(r"-+", "-", tag).strip("-")
+        return tag[:255] if tag else "rca"
+
+    clean_tags = [_sanitize_label(t) for t in result.tags if t]
+
     payload = {
         "type":  "page",
         "title": result.page_title,
         "space": {"key": CONF_SPACE_KEY},
-        "ancestors": [{"id": CONF_PARENT_PAGE_ID}] if CONF_PARENT_PAGE_ID else [],
+        "ancestors": [{"id": str(CONF_PARENT_PAGE_ID)}] if CONF_PARENT_PAGE_ID else [],
         "body": {
             "storage": {
                 "value":          storage_body,
                 "representation": "storage",
             }
-        },
-        "metadata": {
-            "labels": [{"name": tag} for tag in result.tags],
         },
     }
 
@@ -204,6 +214,18 @@ async def create_postmortem_page(
         )
 
         log.info("Confluence page created  id=%s  url=%s", page_id, page_url)
+
+        # Add labels via separate API call (not supported in create payload for Cloud)
+        if clean_tags and page_id:
+            try:
+                label_resp = await client.post(
+                    f"{CONF_BASE_URL}/rest/api/content/{page_id}/label",
+                    json=[{"prefix": "global", "name": t} for t in clean_tags],
+                )
+                if not label_resp.is_success:
+                    log.warning("Labels could not be added: %s", label_resp.text[:200])
+            except Exception as e:
+                log.warning("Label post failed (non-critical): %s", e)
 
         return {
             "page_id":   page_id,
