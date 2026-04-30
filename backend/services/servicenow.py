@@ -108,7 +108,7 @@ async def fetch_incident(incident_number: str) -> SNIncident:
             params={
                 "sysparm_query":  f"number={incident_number}",
                 "sysparm_limit":  "1",
-                "sysparm_display_value": "all",   # return both value + display_value for reference fields
+                "sysparm_display_value": "true",  # display_value for reference fields only; plain fields stay as strings
                 "sysparm_fields": (
                     "sys_id,number,impact,urgency,priority,cmdb_ci,"
                     "opened_at,closed_at,assignment_group,short_description,"
