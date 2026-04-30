@@ -85,11 +85,36 @@ class EurekaEvent(BaseModel):
     description: str
 
 
+VALID_CATEGORIES = {"detection", "investigation", "diagnosis", "fix", "recovery"}
+
+def _coerce_category(v: str) -> str:
+    """Map Gemini free-text categories to valid values."""
+    v = v.lower().strip()
+    if "detect" in v or "alert" in v or "monitor" in v:
+        return "detection"
+    if "investig" in v or "explor" in v or "check" in v or "analys" in v:
+        return "investigation"
+    if "diagnos" in v or "root cause" in v or "identif" in v:
+        return "diagnosis"
+    if "fix" in v or "remedia" in v or "resolv" in v or "rollback" in v or "deploy" in v or "patch" in v:
+        return "fix"
+    if "recover" in v or "restor" in v or "valid" in v or "confirm" in v:
+        return "recovery"
+    return "investigation"  # safe default
+
 class TimelineEvent(BaseModel):
     time:      str
     event:     str
-    category:  Literal["detection", "investigation", "diagnosis", "fix", "recovery"]
+    category:  str = "investigation"
     is_eureka: bool = False
+
+    @classmethod
+    def model_validate(cls, obj, *args, **kwargs):
+        if isinstance(obj, dict) and "category" in obj:
+            obj = dict(obj)
+            if obj["category"] not in VALID_CATEGORIES:
+                obj["category"] = _coerce_category(obj["category"])
+        return super().model_validate(obj, *args, **kwargs)
 
 
 class TimelineResult(BaseModel):

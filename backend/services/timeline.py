@@ -22,12 +22,12 @@ Instructions:
 - time_to_diagnose_minutes: from alert to when root cause was positively identified
 - time_to_fix_minutes: from root cause identified to fix applied and confirmed working
 - eureka_moment: the EXACT moment root cause was identified — be specific
-- timeline: all significant events in order. Each event must have a category:
-    detection = first signs / alerts
-    investigation = exploring possible causes
-    diagnosis = root cause confirmed
-    fix = remediation applied
-    recovery = service restored and validated
+- timeline: all significant events in order. Each event MUST have a category field set to EXACTLY one of these 5 values (no other values allowed):
+    "detection"     = first signs / alerts / monitoring triggers
+    "investigation" = exploring possible causes / checking logs
+    "diagnosis"     = root cause confirmed / identified
+    "fix"           = remediation applied / rollback / patch / config change
+    "recovery"      = service restored and validated / incident closed
 - Mark is_eureka: true on the single event where root cause was confirmed
 - narrative_summary: 2-3 sentences plain-English story of what happened
 - IMPORTANT: Limit timeline to a maximum of 15 most significant events only
